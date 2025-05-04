@@ -1,85 +1,70 @@
 "use client";
 import { useState } from 'react';
+import { Formik, Form, Field, ErrorMessage } from 'formik';
+import * as Yup from 'yup';
+
+// Validation schema using Yup
+const ContactSchema = Yup.object().shape({
+  fullName: Yup.string()
+    .min(2, 'Name is too short')
+    .max(50, 'Name is too long')
+    .required('Full name is required'),
+  email: Yup.string()
+    .email('Invalid email address')
+    .required('Email is required'),
+  subject: Yup.string()
+    .min(5, 'Subject is too short')
+    .max(100, 'Subject is too long')
+    .required('Subject is required'),
+  message: Yup.string()
+    .min(10, 'Message is too short')
+    .max(1000, 'Message is too long')
+    .required('Message is required'),
+});
 
 const ContactUs = () => {
-  const [formData, setFormData] = useState({
+  const [submitStatus, setSubmitStatus] = useState({ type: '', message: '' });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const initialValues = {
     fullName: '',
     email: '',
     subject: '',
     message: ''
-  });
-  const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState({ type: '', message: '' });
-
-  const validateForm = () => {
-    const newErrors = {};
-    if (!formData.fullName.trim()) {
-      newErrors.fullName = 'Full name is required';
-    }
-    if (!formData.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
-    }
-    if (!formData.subject.trim()) {
-      newErrors.subject = 'Subject is required';
-    }
-    if (!formData.message.trim()) {
-      newErrors.message = 'Message is required';
-    }
-    return newErrors;
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-  };
+  const handleSubmit = async (values, { resetForm }) => {
+    setIsSubmitting(true);
+    try {
+      // Direct call to the backend API
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000';
+      const response = await fetch(`${backendUrl}/contact/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(values),
+      });
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const newErrors = validateForm();
-    
-    if (Object.keys(newErrors).length === 0) {
-      setIsSubmitting(true);
-      try {
-        const response = await fetch('/api/contact', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
+      const data = await response.json();
 
-        if (response.ok) {
-          setSubmitStatus({
-            type: 'success',
-            message: 'Thank you for your message. We will get back to you soon!'
-          });
-          setFormData({ fullName: '', email: '', subject: '', message: '' });
-        } else {
-          throw new Error('Failed to send message');
-        }
-      } catch (error) {
+      if (response.ok) {
         setSubmitStatus({
-          type: 'error',
-          message: 'Failed to send message. Please try again later.'
+          type: 'success',
+          message: 'Thank you for your message. We will get back to you soon!'
         });
-      } finally {
-        setIsSubmitting(false);
+        resetForm();
+      } else {
+        throw new Error(data.message || 'Failed to send message');
       }
-    } else {
-      setErrors(newErrors);
+    } catch (error) {
+      setSubmitStatus({
+        type: 'error',
+        message: error.message || 'Failed to send message. Please try again later.'
+      });
+      console.error('Contact form error:', error);
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -128,79 +113,82 @@ const ContactUs = () => {
             </div>
           </div>
 
-          {/* Contact Form */}
-          <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md space-y-6">
+          {/* Contact Form with Formik */}
+          <div className="bg-white p-6 rounded-lg shadow-md">
             {submitStatus.message && (
-              <div className={`p-4 rounded-md ${submitStatus.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
+              <div className={`p-4 mb-6 rounded-md ${submitStatus.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}`}>
                 {submitStatus.message}
               </div>
             )}
-
-            <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">Full Name</label>
-              <input
-                type="text"
-                id="fullName"
-                name="fullName"
-                value={formData.fullName}
-                onChange={handleChange}
-                className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${errors.fullName ? 'border-red-500' : ''}`}
-              />
-              {errors.fullName && <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address</label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${errors.email ? 'border-red-500' : ''}`}
-              />
-              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="subject" className="block text-sm font-medium text-gray-700">Subject</label>
-              <input
-                type="text"
-                id="subject"
-                name="subject"
-                value={formData.subject}
-                onChange={handleChange}
-                className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${errors.subject ? 'border-red-500' : ''}`}
-              />
-              {errors.subject && <p className="mt-1 text-sm text-red-600">{errors.subject}</p>}
-            </div>
-
-            <div>
-              <label htmlFor="message" className="block text-sm font-medium text-gray-700">Message</label>
-              <textarea
-                id="message"
-                name="message"
-                rows="4"
-                value={formData.message}
-                onChange={handleChange}
-                className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${errors.message ? 'border-red-500' : ''}`}
-              />
-              {errors.message && <p className="mt-1 text-sm text-red-600">{errors.message}</p>}
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50"
+            
+            <Formik
+              initialValues={initialValues}
+              validationSchema={ContactSchema}
+              onSubmit={handleSubmit}
             >
-              {isSubmitting ? (
-                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-              ) : 'Send Message'}
-            </button>
-          </form>
+              {({ isSubmitting, touched, errors }) => (
+                <Form className="space-y-6">
+                  <div>
+                    <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">Full Name</label>
+                    <Field
+                      type="text"
+                      id="fullName"
+                      name="fullName"
+                      className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${touched.fullName && errors.fullName ? 'border-red-500' : ''}`}
+                    />
+                    <ErrorMessage name="fullName" component="p" className="mt-1 text-sm text-red-600" />
+                  </div>
+
+                  <div>
+                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email Address</label>
+                    <Field
+                      type="email"
+                      id="email"
+                      name="email"
+                      className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${touched.email && errors.email ? 'border-red-500' : ''}`}
+                    />
+                    <ErrorMessage name="email" component="p" className="mt-1 text-sm text-red-600" />
+                  </div>
+
+                  <div>
+                    <label htmlFor="subject" className="block text-sm font-medium text-gray-700">Subject</label>
+                    <Field
+                      type="text"
+                      id="subject"
+                      name="subject"
+                      className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${touched.subject && errors.subject ? 'border-red-500' : ''}`}
+                    />
+                    <ErrorMessage name="subject" component="p" className="mt-1 text-sm text-red-600" />
+                  </div>
+
+                  <div>
+                    <label htmlFor="message" className="block text-sm font-medium text-gray-700">Message</label>
+                    <Field
+                      as="textarea"
+                      id="message"
+                      name="message"
+                      rows="4"
+                      className={`mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 ${touched.message && errors.message ? 'border-red-500' : ''}`}
+                    />
+                    <ErrorMessage name="message" component="p" className="mt-1 text-sm text-red-600" />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : 'Send Message'}
+                  </button>
+                </Form>
+              )}
+            </Formik>
+          </div>
         </div>
       </div>
     </div>
