@@ -1,10 +1,10 @@
 import React from 'react'
 
 const AboutUs = () => {
-  return (
-    import React from 'react';
-import Image from 'next/image';
+  return ;}
+import image from 'next/image';
 import { Globe, Eye, Users, Star } from 'lucide-react';
+
 
 const teamMembers = [
   {
@@ -117,8 +117,3 @@ export default function AboutUs() {
     </div>
   );
 }
-
-  )
-}
-
-export default AboutUs;
