@@ -27,7 +27,8 @@ const Navbar = () => {
         { name: 'Discover', href: '/#discover' },
         { name: 'Categories', href: '/categories' },
         { name: 'Pricing', href: '/pricing' },
-        { name: 'About', href: '/about' }
+        { name: 'About', href: '/about-us' },
+        { name: 'Contact', href: '/contact-us' },
     ];
 
     const menuVariants = {
